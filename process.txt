@@ -1,0 +1,129 @@
+###  Database Schema and Setup Instructions
+
+#### Database Schema
+This application uses an SQLite database with two main tables: `User` and `ImageAnalysis`. The following are the database models defined using SQLAlchemy:
+
+```python
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+
+db = SQLAlchemy()
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(20), unique=True, nullable=False)
+    password = db.Column(db.String(60), nullable=False)
+
+class ImageAnalysis(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    filename = db.Column(db.String(100), nullable=False)
+    metadata_json = db.Column(db.Text, nullable=False)
+```
+
+##### Detailed Table Structure Explanation
+
+- **User Table**
+  - `id`: A unique identifier for the user, of integer type and serves as the primary key.
+  - `username`: The user's username, of string type with a maximum length of 20. It must be unique and cannot be empty.
+  - `password`: The user's password, of string type with a maximum length of 60 and cannot be empty.
+
+- **ImageAnalysis Table**
+  - `id`: A unique identifier for the image analysis record, of integer type and serves as the primary key.
+  - `user_id`: The ID of the associated user, of integer type, and is a foreign key referencing the `id` field in the `User` table. It cannot be empty.
+  - `filename`: The filename of the uploaded image, of string type with a maximum length of 100 and cannot be empty.
+  - `metadata_json`: The metadata of the image, stored as a JSON string, of text type and cannot be empty.
+
+#### Setup Instructions
+
+##### 1. Install Dependencies
+Ensure that you have installed `Flask` and `Flask - SQLAlchemy`. You can use the following command to install them:
+```bash
+pip install flask flask-sqlalchemy
+```
+
+##### 2. Configure the Application
+Configure the database URI in the Flask application:
+```python
+from flask import Flask
+from models import db
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+db.init_app(app)
+```
+
+##### 3. Create Database Tables
+Run the following code in a Python interactive environment or script to create the database tables:
+```python
+from app import app, db
+with app.app_context():
+    db.create_all()
+```
+
+### 3. Brief Report: Implementation and Features Explanation
+
+#### Abstract
+This report aims to elaborate on the implementation process and main features of the Image Metadata Analysis Application. The application allows users to register, log in, upload images, extract their metadata, and view the history of uploaded images. The entire application is built on the Flask framework, uses an SQLite database to store user information and image metadata, and applies encryption technology to ensure data security.
+
+#### Implementation Details
+
+##### Back - end Implementation
+- **User Authentication**: `Flask - Login` is used to implement user registration, login, and logout functions. When a user registers, the password is hashed using `generate_password_hash` from `werkzeug.security` to ensure password security. During login, `check_password_hash` is used to verify the user - entered password.
+```python
+# User registration
+hashed_password = generate_password_hash(password)
+new_user = User(username=username, password=hashed_password)
+db.session.add(new_user)
+db.session.commit()
+
+# User login
+user = User.query.filter_by(username=username).first()
+if user and check_password_hash(user.password, password):
+    login_user(user)
+```
+- **Image Upload and Metadata Extraction**: After a user uploads an image, the application saves the image to a specified folder and uses the `Pillow` library to extract the image's metadata. For JPEG images, it attempts to extract EXIF metadata; for PNG images, it parses specific chunk information.
+```python
+# Image upload
+filename = secure_filename(file.filename)
+save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+file.save(save_path)
+
+# Metadata extraction
+metadata = extract_metadata(save_path)
+```
+- **Data Encryption**: The `Fernet` symmetric encryption algorithm from the `cryptography` library is used to encrypt the extracted metadata, which is then stored in the database. When viewing the history, the encrypted metadata is decrypted.
+```python
+# Encrypt metadata
+metadata_json = json.dumps(metadata, cls=CustomJSONEncoder)
+encrypted_metadata = cipher_suite.encrypt(metadata_json.encode())
+
+# Decrypt metadata
+encrypted_metadata = analysis.metadata_json.encode()
+decrypted_metadata = cipher_suite.decrypt(encrypted_metadata).decode()
+```
+
+##### Front - end Implementation
+The front - end uses HTML and the Bootstrap framework to build the user interface, providing a simple and aesthetically pleasing user experience. The main pages include:
+- **Home Page**: Displays different operation options based on the user's login status, such as registration, login, image upload, and history viewing.
+- **Registration Page**: Allows users to enter a username and password to register.
+- **Login Page**: Enables registered users to enter their username and password to log in.
+- **Result Page**: Displays the filename of the uploaded image and the extracted metadata.
+- **History Page**: Shows the user's history of uploaded images, including filenames and corresponding metadata.
+
+#### Main Features
+
+##### User Authentication
+- Registration: Users can create new accounts by entering a unique username and password.
+- Login: Registered users can log in to the system using their username and password.
+- Logout: Logged - in users can log out at any time.
+
+##### Image Upload and Metadata Extraction
+- Upload: Users can select local image files for upload.
+- Metadata Extraction: The application automatically extracts the image's metadata, including basic information (such as width, height, file type) and camera - related EXIF information (if available).
+
+##### History Viewing
+Users can view their history of uploaded images, including the filenames and corresponding metadata of each uploaded image.
+
+#### Conclusion
+This Image Metadata Analysis Application combines the Flask framework, SQLite database, and related libraries to implement functions such as user authentication, image upload, metadata extraction, and history viewing. The application of encryption technology ensures the security of user data. In the future, the functions can be further expanded, such as adding image editing and metadata search functions to enhance the user experience. 
